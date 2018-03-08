@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -14,7 +13,6 @@ import (
 const pushLogsAPIEndpoint = "https://api.croncron.io/push_logs"
 
 func main() {
-
 	// 1. We make sure the run token is defined.
 
 	token := flag.String("token", "", "Token of the run (required)")
@@ -28,19 +26,7 @@ func main() {
 		log.Fatal("Run token shouldn't be empty")
 	}
 
-	// 2. We make sure the user is using a pipe
-
-	info, err := os.Stdin.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	if info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0 {
-		fmt.Println("The command is intended to work with pipes. Usage:\nbackupcommand | croncron -token=" + *token)
-		return
-	}
-
-	// 3. We get the logs to send to CronCron
+	// 2. We get the logs to send to CronCron
 
 	scanner := bufio.NewScanner(os.Stdin)
 
