@@ -1,8 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"flag"
-	"io/ioutil"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -27,45 +28,52 @@ func main() {
 		log.Fatal("Run token shouldn't be empty")
 	}
 
-	// 2. We get the log to send to CronCron
+	// 2. We make sure the user is using a pipe
 
 	info, err := os.Stdin.Stat()
 	if err != nil {
 		panic(err)
 	}
 
-	if info.Size() == 0 {
-		log.Fatal("Nothing send to standard input. Check our documentation.")
+	if info.Mode()&os.ModeCharDevice != 0 || info.Size() <= 0 {
+		fmt.Println("The command is intended to work with pipes. Usage:\nbackupcommand | croncron -token=" + *token)
+		return
 	}
 
-	input, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		panic(err)
+	// 3. We get the logs to send to CronCron
+
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for scanner.Scan() {
+		data := url.Values{}
+		data.Set("logs", scanner.Text())
+		data.Set("token", *token)
+
+		req, err := http.NewRequest("POST", pushLogsAPIEndpoint, strings.NewReader(data.Encode()))
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+
+		switch resp.StatusCode {
+		case 200:
+			// All good! Let's stay quiet.
+
+		case 403:
+			log.Fatalln("Wrong token")
+
+		default:
+			log.Printf("Failed sending logs to CronCron: %v", resp.Status)
+		}
 	}
 
-	// 3. We send the log to CronCron using the API
-
-	data := url.Values{}
-	data.Set("logs", string(input))
-	data.Set("token", *token)
-
-	req, err := http.NewRequest("POST", pushLogsAPIEndpoint, strings.NewReader(data.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
+	// Check for errors during `Scan`. End of file is
+	// expected and not reported by `Scan` as an error.
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
 	}
 
-	switch resp.StatusCode {
-	case 200:
-		// All good! Let's stay quiet.
-
-	case 403:
-		log.Println("Wrong token")
-
-	default:
-		log.Printf("Failed sending logs to CronCron: %v", resp.Status)
-	}
 }
