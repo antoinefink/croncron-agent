@@ -52,7 +52,7 @@ func main() {
 			log.Fatalln("Wrong token")
 
 		default:
-			log.Printf("Failed sending logs to CronCron: %v", resp.Status)
+			log.Fatalf("Failed sending logs to CronCron: %v", resp.Status)
 		}
 	}
 
@@ -61,5 +61,4 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-
 }
